@@ -7,8 +7,6 @@ The system enables:
 - secure registration of mileage data  
 - detection of rollback attempts  
 - auditing of inspection stations  
-- performance evaluation (gas / latency)  
-- storage of large files on IPFS  
 
 ---
 
@@ -72,3 +70,4 @@ auditeur_debug → Verification and debugging tools
 - The `.env` file is personal and must not be shared  
 - Use testnet accounts only  
 - Never publish private keys
+
