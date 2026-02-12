@@ -8,7 +8,9 @@ This repository contains the smart contract and scripts used to detect vehicle m
 
 After cloning the repository, run:
 
+```bash
 npm install
+```
 
 This command installs all required packages and recreates the `node_modules` folder.
 
@@ -17,8 +19,9 @@ This command installs all required packages and recreates the `node_modules` fol
 ## 2. Compile the Smart Contract
 
 To compile the Solidity contracts, execute:
-
+```bash
 npx hardhat compile
+```
 
 This command generates the necessary artifacts and cache files.
 
@@ -28,7 +31,9 @@ This command generates the necessary artifacts and cache files.
 
 To deploy the contract on the IOTA EVM test network, run:
 
+```bash
 npx hardhat run scripts/deploy.js --network iota_testnet
+```
 
 The deployed contract address will be displayed in the terminal.
 
@@ -58,3 +63,4 @@ Make sure to copy and save this address for later use.
 - Create a local `.env` file with your own credentials before deployment.  
 - Never share real private keys.  
 - Use testnet accounts only.
+
