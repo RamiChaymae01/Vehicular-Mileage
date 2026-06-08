@@ -1,0 +1,77 @@
+(* ProVerif model for off-chain evidence protection protocol *)
+
+type aeskey.
+
+free ipfsChannel: channel.
+free chainChannel: channel.
+
+free kyberSharedSecret: bitstring [private].
+free vehicleEvidence: bitstring [private].
+
+fun deriveSessionKey(bitstring, bitstring): aeskey.
+
+fun gcmSeal(bitstring, aeskey, bitstring, bitstring): bitstring.
+
+reduc
+    forall m: bitstring, k: aeskey, n: bitstring, a: bitstring;
+        gcmOpen(gcmSeal(m, k, n, a), k, n, a) = m.
+
+fun buildAssociatedData(bitstring, bitstring, bitstring): bitstring.
+fun buildEncryptedBundle(bitstring, bitstring, bitstring, bitstring): bitstring.
+fun computeContentIdentifier(bitstring): bitstring.
+
+event evStationGenerated(bitstring, bitstring, bitstring, bitstring, bitstring).
+event evCidAnchored(bitstring, bitstring, bitstring, bitstring).
+event evAuditorAccepted(bitstring, bitstring, bitstring, bitstring, bitstring).
+
+let CertifiedStation() =
+    new vehicleId: bitstring;
+    new timeStamp: bitstring;
+    new odometerValue: bitstring;
+    new saltValue: bitstring;
+    new nonceValue: bitstring;
+
+    let associatedData = buildAssociatedData(vehicleId, timeStamp, odometerValue) in
+    let sessionKey = deriveSessionKey(kyberSharedSecret, saltValue) in
+    let cipherText = gcmSeal(vehicleEvidence, sessionKey, nonceValue, associatedData) in
+    let encryptedBundle = buildEncryptedBundle(saltValue, nonceValue, associatedData, cipherText) in
+    let proofCid = computeContentIdentifier(encryptedBundle) in
+
+    event evStationGenerated(vehicleId, timeStamp, odometerValue, proofCid, vehicleEvidence);
+    event evCidAnchored(vehicleId, timeStamp, odometerValue, proofCid);
+
+    out(ipfsChannel, (saltValue, nonceValue, associatedData, cipherText));
+    out(chainChannel, (vehicleId, timeStamp, odometerValue, proofCid)).
+
+let Auditor() =
+    in(chainChannel, (vehicleId: bitstring, timeStamp: bitstring,
+                      odometerValue: bitstring, proofCid: bitstring));
+
+    in(ipfsChannel, (saltValue: bitstring, nonceValue: bitstring,
+                     receivedAssociatedData: bitstring, cipherText: bitstring));
+
+    let expectedAssociatedData = buildAssociatedData(vehicleId, timeStamp, odometerValue) in
+
+    if receivedAssociatedData = expectedAssociatedData then
+        let receivedBundle = buildEncryptedBundle(saltValue, nonceValue, receivedAssociatedData, cipherText) in
+
+        if proofCid = computeContentIdentifier(receivedBundle) then
+            let sessionKey = deriveSessionKey(kyberSharedSecret, saltValue) in
+            let plainEvidence = gcmOpen(cipherText, sessionKey, nonceValue, receivedAssociatedData) in
+            event evAuditorAccepted(vehicleId, timeStamp, odometerValue, proofCid, plainEvidence).
+
+query attacker(kyberSharedSecret).
+query attacker(vehicleEvidence).
+
+query v: bitstring, t: bitstring, o: bitstring, c: bitstring, p: bitstring;
+    event(evAuditorAccepted(v, t, o, c, p))
+    ==>
+    event(evStationGenerated(v, t, o, c, p)).
+
+query v: bitstring, t: bitstring, o: bitstring, c: bitstring, p: bitstring;
+    event(evAuditorAccepted(v, t, o, c, p))
+    ==>
+    event(evCidAnchored(v, t, o, c)).
+
+process
+    (!CertifiedStation()) | (!Auditor())
